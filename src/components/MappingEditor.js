@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Input, Select, Space, Switch, Table, Tooltip, Typography } from "antd";
-import { DeleteOutlined, HolderOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from "@ant-design/icons";
+import { DeleteOutlined, FolderOpenOutlined, HolderOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import DerivedColumnDrawer from "./DerivedColumnDrawer";
 import { DELETE_ROW_MATCH_OPTIONS, DELETE_ROW_RULE_OPTIONS, createDefaultDeleteRowCondition } from "@/lib/transforms/deleteRowConditions";
@@ -51,6 +51,9 @@ export default function MappingEditor({
   onSaveTemplate,
   onApplyTemplate,
   onDeleteTemplate,
+  templateFolderPath = "",
+  onChooseTemplateFolder,
+  onLoadTemplatesFromFolder,
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draggedColumnId, setDraggedColumnId] = useState(null);
@@ -367,9 +370,12 @@ export default function MappingEditor({
           />
           <Button disabled={!selectedTemplateId} onClick={() => onApplyTemplate(selectedTemplateId)}>Load template</Button>
           <Button danger disabled={!selectedTemplateId} onClick={() => onDeleteTemplate(selectedTemplateId)}>Delete template</Button>
+          <Button icon={<FolderOpenOutlined />} onClick={onChooseTemplateFolder}>Choose template folder</Button>
+          <Button onClick={onLoadTemplatesFromFolder}>Load from folder</Button>
         </Space>
         <Button type="primary" onClick={onGenerate}>Generate preview</Button>
       </div>
+      {templateFolderPath ? <Text type="secondary">Template folder: {templateFolderPath}</Text> : null}
       {renderDeleteRowConditions()}
       <Table
         rowKey="id"

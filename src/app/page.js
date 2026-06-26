@@ -18,6 +18,84 @@ import { validatePlan } from "@/lib/transforms/validatePlan";
 const { Content } = Layout;
 const { Text, Title } = Typography;
 const MAPPING_TEMPLATE_STORAGE_KEY = "audit-ui.mapping-templates";
+const TEMPLATE_FOLDER_NAME = "audit-ui-templates";
+const TEMPLATE_FILE_NAME = "templates.json";
+let browserTemplateFolderHandle = null;
+let browserTemplateFolderLabel = "";
+
+function normalizeTemplates(value) {
+  return Array.isArray(value) ? value.filter((template) => template?.id && template?.name && template?.plan?.columns) : [];
+}
+
+async function readBrowserTemplateFolder(folderHandle) {
+  try {
+    const fileHandle = await folderHandle.getFileHandle(TEMPLATE_FILE_NAME);
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    return normalizeTemplates(JSON.parse(text));
+  } catch (error) {
+    if (error.name === "NotFoundError") {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+async function writeBrowserTemplateFolder(folderHandle, templates) {
+  const fileHandle = await folderHandle.getFileHandle(TEMPLATE_FILE_NAME, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(`${JSON.stringify(normalizeTemplates(templates), null, 2)}\n`);
+  await writable.close();
+}
+
+async function chooseBrowserTemplateParentFolder(title) {
+  const parentFolderHandle = await window.showDirectoryPicker({ mode: "readwrite", startIn: "documents" });
+  const folderHandle = await parentFolderHandle.getDirectoryHandle(TEMPLATE_FOLDER_NAME, { create: true });
+  browserTemplateFolderHandle = folderHandle;
+  browserTemplateFolderLabel = `${parentFolderHandle.name}/${TEMPLATE_FOLDER_NAME}`;
+
+  return {
+    folderHandle,
+    folderPath: browserTemplateFolderLabel,
+    title,
+  };
+}
+
+function createBrowserTemplateApi() {
+  if (typeof window === "undefined" || typeof window.showDirectoryPicker !== "function") {
+    return null;
+  }
+
+  return {
+    async chooseTemplateFolder() {
+      const { folderHandle, folderPath } = await chooseBrowserTemplateParentFolder("Choose where to save template folder");
+      return { canceled: false, folderPath, templates: await readBrowserTemplateFolder(folderHandle) };
+    },
+    async loadTemplatesFromFolder() {
+      const { folderHandle, folderPath } = await chooseBrowserTemplateParentFolder("Choose folder to check for templates");
+      return { canceled: false, folderPath, templates: await readBrowserTemplateFolder(folderHandle) };
+    },
+    async saveTemplatesToFolder(templates) {
+      if (!browserTemplateFolderHandle) {
+        const { folderHandle, folderPath } = await chooseBrowserTemplateParentFolder("Choose where to save template folder");
+        await writeBrowserTemplateFolder(folderHandle, templates);
+        return { canceled: false, folderPath, templates: normalizeTemplates(templates) };
+      }
+
+      await writeBrowserTemplateFolder(browserTemplateFolderHandle, templates);
+      return { canceled: false, folderPath: browserTemplateFolderLabel || browserTemplateFolderHandle.name, templates: normalizeTemplates(templates) };
+    },
+  };
+}
+
+function getTemplateApi() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.auditTemplates || createBrowserTemplateApi();
+}
 
 function getStepIndex(workbookData, generated) {
   if (generated) {
@@ -43,7 +121,7 @@ function loadStoredTemplates() {
   try {
     const stored = window.localStorage.getItem(MAPPING_TEMPLATE_STORAGE_KEY);
     const templates = stored ? JSON.parse(stored) : [];
-    return Array.isArray(templates) ? templates.filter((template) => template?.id && template?.name && template?.plan?.columns) : [];
+    return normalizeTemplates(templates);
   } catch {
     return [];
   }
@@ -68,6 +146,7 @@ export default function Home() {
   const [parsing, setParsing] = useState(false);
   const [mappingTemplates, setMappingTemplates] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
+  const [templateFolderPath, setTemplateFolderPath] = useState("");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -132,7 +211,74 @@ export default function Home() {
     setValidationReport(null);
   }
 
-  function handleSaveTemplate(templateName) {
+  async function persistTemplates(nextTemplates) {
+    const templateApi = getTemplateApi();
+
+    if (!templateApi) {
+      storeTemplates(nextTemplates);
+      return true;
+    }
+
+    try {
+      const result = await templateApi.saveTemplatesToFolder(nextTemplates, templateFolderPath || null);
+      if (result?.canceled) {
+        return false;
+      }
+
+      setTemplateFolderPath(result.folderPath || "");
+      return true;
+    } catch (error) {
+      messageApi.error(error.message || "Unable to save templates to folder.");
+      return false;
+    }
+  }
+
+  async function handleChooseTemplateFolder() {
+    const templateApi = getTemplateApi();
+    if (!templateApi) {
+      messageApi.warning("Template folders need a browser with folder access support, or the desktop app.");
+      return;
+    }
+
+    try {
+      const result = await templateApi.chooseTemplateFolder();
+      if (result?.canceled) {
+        return;
+      }
+
+      setTemplateFolderPath(result.folderPath || "");
+      setMappingTemplates(result.templates || []);
+      setSelectedTemplateId(null);
+      messageApi.success(`Template folder ready. Loaded ${result.templates?.length || 0} template${result.templates?.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      messageApi.error(error.message || "Unable to choose template folder.");
+    }
+  }
+
+  async function handleLoadTemplatesFromFolder() {
+    const templateApi = getTemplateApi();
+    if (!templateApi) {
+      setMappingTemplates(loadStoredTemplates());
+      messageApi.warning("Template folders need a browser with folder access support, or the desktop app. Loaded browser templates instead.");
+      return;
+    }
+
+    try {
+      const result = await templateApi.loadTemplatesFromFolder();
+      if (result?.canceled) {
+        return;
+      }
+
+      setTemplateFolderPath(result.folderPath || "");
+      setMappingTemplates(result.templates || []);
+      setSelectedTemplateId(null);
+      messageApi.success(`Loaded ${result.templates?.length || 0} template${result.templates?.length === 1 ? "" : "s"}.`);
+    } catch (error) {
+      messageApi.error(error.message || "Unable to load templates from folder.");
+    }
+  }
+
+  async function handleSaveTemplate(templateName) {
     const trimmedName = templateName.trim();
     if (!trimmedName) {
       return;
@@ -150,9 +296,13 @@ export default function Home() {
       ? mappingTemplates.map((template) => (template.id === existingTemplate.id ? nextTemplate : template))
       : [...mappingTemplates, nextTemplate];
 
+    const saved = await persistTemplates(nextTemplates);
+    if (!saved) {
+      return;
+    }
+
     setMappingTemplates(nextTemplates);
     setSelectedTemplateId(nextTemplate.id);
-    storeTemplates(nextTemplates);
     messageApi.success(existingTemplate ? "Template updated." : "Template saved.");
   }
 
@@ -170,13 +320,17 @@ export default function Home() {
     messageApi.success("Template loaded.");
   }
 
-  function handleDeleteTemplate(templateId) {
+  async function handleDeleteTemplate(templateId) {
     const nextTemplates = mappingTemplates.filter((template) => template.id !== templateId);
+    const saved = await persistTemplates(nextTemplates);
+    if (!saved) {
+      return;
+    }
+
     setMappingTemplates(nextTemplates);
     if (selectedTemplateId === templateId) {
       setSelectedTemplateId(null);
     }
-    storeTemplates(nextTemplates);
     messageApi.success("Template deleted.");
   }
 
@@ -231,6 +385,9 @@ export default function Home() {
             onSaveTemplate={handleSaveTemplate}
             onApplyTemplate={handleApplyTemplate}
             onDeleteTemplate={handleDeleteTemplate}
+            templateFolderPath={templateFolderPath}
+            onChooseTemplateFolder={handleChooseTemplateFolder}
+            onLoadTemplatesFromFolder={handleLoadTemplatesFromFolder}
           />
           <ValidationPanel report={validationReport} />
         </Space>

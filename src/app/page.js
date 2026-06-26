@@ -192,7 +192,7 @@ export default function Home() {
       return;
     }
 
-    const nextGenerated = runTransform(selectedSheet.rows, plan);
+    const nextGenerated = runTransform(selectedSheet.rows, plan, selectedSheet.cellMetadataRows);
     const finalReport = validatePlan(plan, selectedSheet.headers, selectedSheet.rows, nextGenerated.outputRows.length);
     finalReport.rowWarnings = nextGenerated.rowWarnings;
 
@@ -205,7 +205,7 @@ export default function Home() {
       return;
     }
 
-    downloadExcel(generated.outputRows, generated.outputHeaders, workbookData.fileName);
+    downloadExcel(generated.outputRows, generated.outputHeaders, workbookData.fileName, generated.outputCellMetadataRows);
   }
 
   const tabItems = [

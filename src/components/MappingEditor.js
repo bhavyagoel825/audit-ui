@@ -15,6 +15,10 @@ function sourceOptions(headers) {
   return headers.map((header) => ({ value: header, label: header }));
 }
 
+function makeTestId(prefix, id) {
+  return `${prefix}-${String(id).replace(/[^a-z0-9_-]+/gi, "_")}`;
+}
+
 function clonePlanWithColumn(plan, columnId, updater) {
   return {
     ...plan,
@@ -123,27 +127,30 @@ export default function MappingEditor({
     const conditions = plan.deleteRowConditions || [];
 
     return (
-      <div className="delete-rules-panel">
+      <div className="delete-rules-panel" data-testid="delete-conditions">
         <div className="delete-rules-heading">
           <Text strong>Delete rows</Text>
-          <Button icon={<PlusOutlined />} onClick={addDeleteRowCondition}>Add condition</Button>
+          <Button data-testid="add-delete-condition" icon={<PlusOutlined />} onClick={addDeleteRowCondition}>Add condition</Button>
         </div>
         {conditions.length ? (
           <Space direction="vertical" size="small" className="full-width">
             {conditions.map((condition, index) => (
-              <div className="delete-rule-row" key={condition.id}>
+              <div className="delete-rule-row" key={condition.id} data-testid={makeTestId("delete-condition-row", condition.id)}>
                 <Switch
+                  data-testid={makeTestId("delete-condition-enabled", condition.id)}
                   checked={condition.enabled !== false}
                   onChange={(enabled) => updateDeleteRowCondition(condition.id, { enabled })}
                 />
                 <Text className="delete-rule-index">#{index + 1}</Text>
                 <Select
+                  data-testid={makeTestId("delete-condition-rule", condition.id)}
                   value={condition.rule || "emptyOrZero"}
                   options={DELETE_ROW_RULE_OPTIONS}
                   onChange={(rule) => updateDeleteRowCondition(condition.id, { rule })}
                   style={{ width: 140 }}
                 />
                 <Select
+                  data-testid={makeTestId("delete-condition-columns", condition.id)}
                   mode="multiple"
                   value={condition.columns || []}
                   options={sourceOptions(headers)}
@@ -153,13 +160,14 @@ export default function MappingEditor({
                   maxTagCount="responsive"
                 />
                 <Select
+                  data-testid={makeTestId("delete-condition-match", condition.id)}
                   value={condition.match || "any"}
                   options={DELETE_ROW_MATCH_OPTIONS}
                   onChange={(match) => updateDeleteRowCondition(condition.id, { match })}
                   style={{ width: 92 }}
                 />
                 <Tooltip title="Delete condition">
-                  <Button danger icon={<DeleteOutlined />} onClick={() => removeDeleteRowCondition(condition.id)} />
+                  <Button data-testid={makeTestId("delete-condition-remove", condition.id)} danger icon={<DeleteOutlined />} onClick={() => removeDeleteRowCondition(condition.id)} />
                 </Tooltip>
               </div>
             ))}
@@ -178,6 +186,7 @@ export default function MappingEditor({
     if (["copy", "trim", "uppercase", "lowercase"].includes(operation.type)) {
       return (
         <Select
+          data-testid={makeTestId("column-source", column.id)}
           value={operation.source}
           options={options}
           onChange={(source) => onPlanChange(updateOperation(plan, column.id, { source }))}
@@ -190,6 +199,7 @@ export default function MappingEditor({
       return (
         <Space wrap>
           <Select
+            data-testid={makeTestId("column-sources", column.id)}
             mode="multiple"
             value={operation.sources || []}
             options={options}
@@ -198,12 +208,14 @@ export default function MappingEditor({
             style={{ minWidth: 240 }}
           />
           <Input
+            data-testid={makeTestId("column-separator", column.id)}
             value={operation.separator ?? ""}
             onChange={(event) => onPlanChange(updateOperation(plan, column.id, { separator: event.target.value }))}
             placeholder="Separator"
             style={{ width: 120 }}
           />
           <Input
+            data-testid={makeTestId("column-literal", column.id)}
             value={operation.literal ?? ""}
             onChange={(event) => onPlanChange(updateOperation(plan, column.id, { literal: event.target.value }))}
             placeholder="Literal"
@@ -216,6 +228,7 @@ export default function MappingEditor({
     if (NUMERIC_OPERATIONS.has(operation.type)) {
       return (
         <Select
+          data-testid={makeTestId("column-sources", column.id)}
           mode="multiple"
           value={operation.sources || []}
           options={options}
@@ -229,6 +242,7 @@ export default function MappingEditor({
     if (operation.type === "divide") {
       return (
         <Select
+          data-testid={makeTestId("column-sources", column.id)}
           mode="multiple"
           maxCount={2}
           value={operation.sources || []}
@@ -244,6 +258,7 @@ export default function MappingEditor({
       return (
         <Space wrap>
           <Select
+            data-testid={makeTestId("column-primary-source", column.id)}
             value={operation.primarySource}
             options={options}
             onChange={(primarySource) => onPlanChange(updateOperation(plan, column.id, { primarySource }))}
@@ -251,6 +266,7 @@ export default function MappingEditor({
             style={{ width: 160 }}
           />
           <Select
+            data-testid={makeTestId("column-fallback-source", column.id)}
             allowClear
             value={operation.fallbackSource}
             options={options}
@@ -259,6 +275,7 @@ export default function MappingEditor({
             style={{ width: 180 }}
           />
           <Input
+            data-testid={makeTestId("column-fallback-literal", column.id)}
             value={operation.fallbackLiteral ?? ""}
             onChange={(event) => onPlanChange(updateOperation(plan, column.id, { fallbackLiteral: event.target.value }))}
             placeholder="Fallback literal"
@@ -279,6 +296,7 @@ export default function MappingEditor({
       render: (_, column) => (
         <Tooltip title="Drag to reorder">
           <Button
+            data-testid={makeTestId("column-drag", column.id)}
             className="drag-handle"
             icon={<HolderOutlined />}
             draggable
@@ -298,6 +316,7 @@ export default function MappingEditor({
       width: 90,
       render: (_, column) => (
         <Switch
+          data-testid={makeTestId("column-enabled", column.id)}
           checked={column.enabled}
           onChange={(enabled) => onPlanChange(clonePlanWithColumn(plan, column.id, (current) => ({ ...current, enabled })))}
         />
@@ -309,6 +328,7 @@ export default function MappingEditor({
       width: 220,
       render: (_, column) => (
         <Input
+          data-testid={makeTestId("column-output-name", column.id)}
           value={column.outputName}
           onChange={(event) => onPlanChange(clonePlanWithColumn(plan, column.id, (current) => ({ ...current, outputName: event.target.value })))}
         />
@@ -320,6 +340,7 @@ export default function MappingEditor({
       width: 190,
       render: (_, column) => (
         <Select
+          data-testid={makeTestId("column-operation", column.id)}
           value={column.operation.type}
           options={OPERATION_OPTIONS}
           onChange={(type) => onPlanChange(clonePlanWithColumn(plan, column.id, (current) => ({ ...current, operation: getDefaultOperation(type, headers) })))}
@@ -338,7 +359,7 @@ export default function MappingEditor({
       width: 90,
       render: (_, column) => (
         <Tooltip title="Delete column">
-          <Button danger icon={<DeleteOutlined />} onClick={() => removeColumn(column.id)} />
+          <Button data-testid={makeTestId("column-remove", column.id)} danger icon={<DeleteOutlined />} onClick={() => removeColumn(column.id)} />
         </Tooltip>
       ),
     },
@@ -348,19 +369,21 @@ export default function MappingEditor({
 
   return (
     <div className="stack">
-      <div className="toolbar">
+      <div className="toolbar" data-testid="mapping-toolbar">
         <Space wrap>
-          <Button icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)}>Add derived column</Button>
-          <Button icon={<ReloadOutlined />} onClick={onReset}>Reset mappings</Button>
+          <Button data-testid="add-derived-column" icon={<PlusOutlined />} onClick={() => setDrawerOpen(true)}>Add derived column</Button>
+          <Button data-testid="reset-mappings" icon={<ReloadOutlined />} onClick={onReset}>Reset mappings</Button>
           <Input
+            data-testid="template-name-input"
             value={templateName}
             onChange={(event) => setTemplateName(event.target.value)}
             onPressEnter={saveTemplate}
             placeholder="Template name"
             style={{ width: 190 }}
           />
-          <Button icon={<SaveOutlined />} onClick={saveTemplate} disabled={!templateName.trim()}>Save template</Button>
+          <Button data-testid="save-template" icon={<SaveOutlined />} onClick={saveTemplate} disabled={!templateName.trim()}>Save template</Button>
           <Select
+            data-testid="template-select"
             allowClear
             value={selectedTemplateId}
             onChange={onTemplateChange}
@@ -368,16 +391,17 @@ export default function MappingEditor({
             placeholder="Saved templates"
             style={{ minWidth: 190 }}
           />
-          <Button disabled={!selectedTemplateId} onClick={() => onApplyTemplate(selectedTemplateId)}>Load template</Button>
-          <Button danger disabled={!selectedTemplateId} onClick={() => onDeleteTemplate(selectedTemplateId)}>Delete template</Button>
-          <Button icon={<FolderOpenOutlined />} onClick={onChooseTemplateFolder}>Choose template folder</Button>
-          <Button onClick={onLoadTemplatesFromFolder}>Load from folder</Button>
+          <Button data-testid="load-template" disabled={!selectedTemplateId} onClick={() => onApplyTemplate(selectedTemplateId)}>Load template</Button>
+          <Button data-testid="delete-template" danger disabled={!selectedTemplateId} onClick={() => onDeleteTemplate(selectedTemplateId)}>Delete template</Button>
+          <Button data-testid="choose-template-folder" icon={<FolderOpenOutlined />} onClick={onChooseTemplateFolder}>Choose template folder</Button>
+          <Button data-testid="load-templates-from-folder" onClick={onLoadTemplatesFromFolder}>Load from folder</Button>
         </Space>
-        <Button type="primary" onClick={onGenerate}>Generate preview</Button>
+        <Button data-testid="generate-preview" type="primary" onClick={onGenerate}>Generate preview</Button>
       </div>
       {templateFolderPath ? <Text type="secondary">Template folder: {templateFolderPath}</Text> : null}
       {renderDeleteRowConditions()}
       <Table
+        data-testid="columns-table"
         rowKey="id"
         size="small"
         columns={columns}
@@ -386,6 +410,7 @@ export default function MappingEditor({
         scroll={{ x: "max-content" }}
         rowClassName={(column) => (column.id === draggedColumnId ? "dragging-row" : "")}
         onRow={(column) => ({
+          "data-testid": makeTestId("column-row", column.id),
           onDragOver: (event) => {
             if (draggedColumnId) {
               event.preventDefault();

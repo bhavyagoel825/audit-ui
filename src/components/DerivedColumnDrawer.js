@@ -17,17 +17,17 @@ export default function DerivedColumnDrawer({ open, headers, onClose, onAdd }) {
   }
 
   return (
-    <Drawer title="Add derived column" open={open} onClose={onClose} width={420} destroyOnClose>
+    <Drawer title="Add derived column" open={open} onClose={onClose} width={420} destroyOnClose data-testid="derived-column-drawer">
       <Form form={form} layout="vertical" initialValues={{ operationType: "concat" }}>
         <Form.Item label="Output name" name="outputName">
-          <Input placeholder="New output column" />
+          <Input data-testid="derived-output-name" placeholder="New output column" />
         </Form.Item>
         <Form.Item label="Operation" name="operationType">
-          <Select options={OPERATION_OPTIONS.filter((option) => option.value !== "copy")} />
+          <Select data-testid="derived-operation" options={OPERATION_OPTIONS.filter((option) => option.value !== "copy")} />
         </Form.Item>
         <Space className="toolbar right">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="primary" onClick={handleSubmit}>Add column</Button>
+          <Button data-testid="derived-add-column" type="primary" onClick={handleSubmit}>Add column</Button>
         </Space>
       </Form>
     </Drawer>

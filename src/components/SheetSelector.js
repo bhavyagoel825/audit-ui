@@ -7,6 +7,7 @@ export default function SheetSelector({ sheets, selectedSheetName, onSelectSheet
     <Space wrap align="center">
       <Typography.Text strong>Sheet</Typography.Text>
       <Select
+        data-testid="sheet-select"
         value={selectedSheetName}
         onChange={onSelectSheet}
         options={sheets.map((sheet) => ({

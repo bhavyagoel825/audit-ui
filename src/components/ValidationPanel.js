@@ -27,19 +27,20 @@ export default function ValidationPanel({ report }) {
   }
 
   return (
-    <Space direction="vertical" size="middle" className="full-width">
+    <Space direction="vertical" size="middle" className="full-width" data-testid="validation-panel">
       {report.blockingErrors.length ? (
         <Alert
+          data-testid="validation-errors"
           type="error"
           showIcon
           message={`${report.blockingErrors.length} blocking issue${report.blockingErrors.length === 1 ? "" : "s"}`}
           description={<MessageList items={report.blockingErrors} />}
         />
       ) : (
-        <Alert type="success" showIcon message="Validation passed" description={summaryText ? <Text>{summaryText}</Text> : null} />
+        <Alert data-testid="validation-success" type="success" showIcon message="Validation passed" description={summaryText ? <Text>{summaryText}</Text> : null} />
       )}
       {report.warnings.length ? (
-        <Alert type="warning" showIcon message="Warnings" description={<MessageList items={report.warnings} />} />
+        <Alert data-testid="validation-warnings" type="warning" showIcon message="Warnings" description={<MessageList items={report.warnings} />} />
       ) : null}
       {collapseItems.length ? <Collapse size="small" items={collapseItems} /> : null}
     </Space>

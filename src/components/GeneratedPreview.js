@@ -27,14 +27,14 @@ export default function GeneratedPreview({ generated, sourceHeaders = [], canDow
   const deletedSourceRows = generated.deletedSourceRows || [];
 
   return (
-    <Space direction="vertical" size="middle" className="full-width">
+    <Space direction="vertical" size="middle" className="full-width" data-testid="generated-preview">
       <div className="toolbar right">
-        <Button type="primary" icon={<DownloadOutlined />} disabled={!canDownload} onClick={onDownload}>
+        <Button data-testid="download-excel" type="primary" icon={<DownloadOutlined />} disabled={!canDownload} onClick={onDownload}>
           Download Excel
         </Button>
       </div>
       {deletedSourceRows.length ? (
-        <div className="deleted-rows-preview">
+        <div className="deleted-rows-preview" data-testid="deleted-rows-preview">
           <Alert type="warning" showIcon message={`Deleted source rows (${deletedSourceRows.length})`} />
           <Table
             size="small"
@@ -49,6 +49,7 @@ export default function GeneratedPreview({ generated, sourceHeaders = [], canDow
       ) : null}
       {generated.outputRows.length ? (
         <Table
+          data-testid="generated-output-table"
           size="small"
           columns={makeTableColumns(generated.outputHeaders)}
           dataSource={makeTableRows(generated.outputRows)}

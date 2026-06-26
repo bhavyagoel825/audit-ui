@@ -15,6 +15,7 @@ export default function FileUploadPanel({ parsing, parseError, templates = [], s
         <Space wrap align="center">
           <Typography.Text strong>Template</Typography.Text>
           <Select
+            data-testid="file-template-select"
             allowClear
             value={selectedTemplateId}
             onChange={onTemplateChange}
@@ -25,6 +26,7 @@ export default function FileUploadPanel({ parsing, parseError, templates = [], s
         </Space>
       ) : null}
       <Dragger
+        data-testid="file-upload-dragger"
         accept=".csv,.xls,.xlsx"
         maxCount={1}
         multiple={false}

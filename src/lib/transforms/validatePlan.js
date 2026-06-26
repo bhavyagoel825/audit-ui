@@ -1,3 +1,5 @@
+import { DELETE_ROW_RULE_LABELS, isValidDeleteRowCondition, shouldDeleteRow } from "./deleteRowConditions";
+
 const NUMERIC_OPERATIONS = new Set(["add", "subtract", "multiply", "divide"]);
 const SINGLE_SOURCE_OPERATIONS = new Set(["copy", "trim", "uppercase", "lowercase"]);
 
@@ -57,10 +59,51 @@ function validateOperationConfig(column, headers, errors) {
   errors.push(`${outputName}: operation config is incomplete.`);
 }
 
+function validateDeleteRowConditions(conditions, headers, errors) {
+  conditions.forEach((condition, index) => {
+    if (condition?.enabled === false) {
+      return;
+    }
+
+    const conditionLabel = `Delete row condition ${index + 1}`;
+    const selectedColumns = condition?.columns || [];
+
+    if (!DELETE_ROW_RULE_LABELS[condition?.rule]) {
+      errors.push(`${conditionLabel}: select a valid rule.`);
+    }
+
+    if (!["any", "all"].includes(condition?.match)) {
+      errors.push(`${conditionLabel}: select OR or AND.`);
+    }
+
+    if (!selectedColumns.length) {
+      errors.push(`${conditionLabel}: select at least one source column.`);
+    }
+
+    selectedColumns.forEach((column) => {
+      if (!headers.includes(column)) {
+        errors.push(`${conditionLabel}: ${column} is not in the source sheet.`);
+      }
+    });
+  });
+}
+
+function countDeletedRows(rows, plan, headers) {
+  const validConditions = (plan.deleteRowConditions || []).filter((condition) => isValidDeleteRowCondition(condition, headers));
+  if (!validConditions.length) {
+    return 0;
+  }
+
+  return rows.reduce((count, row) => {
+    return validConditions.some((condition) => shouldDeleteRow(row, condition)) ? count + 1 : count;
+  }, 0);
+}
+
 export function validatePlan(plan, headers, rows, expectedOutputRows = null) {
   const blockingErrors = [];
   const warnings = [];
   const enabledColumns = plan.columns.filter((column) => column.enabled);
+  const deleteRowConditions = plan.deleteRowConditions || [];
   const outputNames = enabledColumns.map((column) => String(column.outputName || "").trim());
   const seenOutputNames = new Set();
 
@@ -78,9 +121,13 @@ export function validatePlan(plan, headers, rows, expectedOutputRows = null) {
   });
 
   enabledColumns.forEach((column) => validateOperationConfig(column, headers, blockingErrors));
+  validateDeleteRowConditions(deleteRowConditions, headers, blockingErrors);
 
-  if (expectedOutputRows !== null && expectedOutputRows !== rows.length) {
-    blockingErrors.push("Output row count differs from input row count.");
+  const deletedRows = countDeletedRows(rows, plan, headers);
+  const expectedRowsAfterDeletion = rows.length - deletedRows;
+
+  if (expectedOutputRows !== null && expectedOutputRows !== expectedRowsAfterDeletion) {
+    blockingErrors.push("Output row count does not match the configured delete row conditions.");
   }
 
   if (rows.length > 5000) {
@@ -93,7 +140,8 @@ export function validatePlan(plan, headers, rows, expectedOutputRows = null) {
     rowWarnings: [],
     summary: {
       inputRows: rows.length,
-      outputRows: expectedOutputRows ?? 0,
+      outputRows: expectedOutputRows ?? expectedRowsAfterDeletion,
+      deletedRows,
       inputColumns: headers.length,
       outputColumns: enabledColumns.length,
     },

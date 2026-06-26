@@ -1,10 +1,13 @@
 "use client";
 
-import { Button, Input, InputNumber, Select, Space, Switch, Table, Tooltip } from "antd";
+import { Button, Input, Select, Space, Switch, Table, Tooltip, Typography } from "antd";
 import { DeleteOutlined, HolderOutlined, PlusOutlined, ReloadOutlined, SaveOutlined } from "@ant-design/icons";
 import { useState } from "react";
 import DerivedColumnDrawer from "./DerivedColumnDrawer";
+import { DELETE_ROW_MATCH_OPTIONS, DELETE_ROW_RULE_OPTIONS, createDefaultDeleteRowCondition } from "@/lib/transforms/deleteRowConditions";
 import { OPERATION_OPTIONS, getDefaultOperation } from "@/lib/transforms/operations";
+
+const { Text } = Typography;
 
 const NUMERIC_OPERATIONS = new Set(["add", "subtract", "multiply"]);
 
@@ -14,7 +17,15 @@ function sourceOptions(headers) {
 
 function clonePlanWithColumn(plan, columnId, updater) {
   return {
+    ...plan,
     columns: plan.columns.map((column) => (column.id === columnId ? updater(column) : column)),
+  };
+}
+
+function clonePlanWithDeleteRowCondition(plan, conditionId, updater) {
+  return {
+    ...plan,
+    deleteRowConditions: (plan.deleteRowConditions || []).map((condition) => (condition.id === conditionId ? updater(condition) : condition)),
   };
 }
 
@@ -59,7 +70,7 @@ export default function MappingEditor({
     const nextColumns = [...plan.columns];
     const [column] = nextColumns.splice(index, 1);
     nextColumns.splice(nextIndex, 0, column);
-    onPlanChange({ columns: nextColumns });
+    onPlanChange({ ...plan, columns: nextColumns });
   }
 
   function saveTemplate() {
@@ -68,11 +79,30 @@ export default function MappingEditor({
   }
 
   function removeColumn(columnId) {
-    onPlanChange({ columns: plan.columns.filter((column) => column.id !== columnId) });
+    onPlanChange({ ...plan, columns: plan.columns.filter((column) => column.id !== columnId) });
+  }
+
+  function addDeleteRowCondition() {
+    onPlanChange({
+      ...plan,
+      deleteRowConditions: [...(plan.deleteRowConditions || []), createDefaultDeleteRowCondition(headers)],
+    });
+  }
+
+  function removeDeleteRowCondition(conditionId) {
+    onPlanChange({
+      ...plan,
+      deleteRowConditions: (plan.deleteRowConditions || []).filter((condition) => condition.id !== conditionId),
+    });
+  }
+
+  function updateDeleteRowCondition(conditionId, patch) {
+    onPlanChange(clonePlanWithDeleteRowCondition(plan, conditionId, (condition) => ({ ...condition, ...patch })));
   }
 
   function addDerivedColumn(values) {
     onPlanChange({
+      ...plan,
       columns: [
         ...plan.columns,
         {
@@ -84,6 +114,58 @@ export default function MappingEditor({
       ],
     });
     setDrawerOpen(false);
+  }
+
+  function renderDeleteRowConditions() {
+    const conditions = plan.deleteRowConditions || [];
+
+    return (
+      <div className="delete-rules-panel">
+        <div className="delete-rules-heading">
+          <Text strong>Delete rows</Text>
+          <Button icon={<PlusOutlined />} onClick={addDeleteRowCondition}>Add condition</Button>
+        </div>
+        {conditions.length ? (
+          <Space direction="vertical" size="small" className="full-width">
+            {conditions.map((condition, index) => (
+              <div className="delete-rule-row" key={condition.id}>
+                <Switch
+                  checked={condition.enabled !== false}
+                  onChange={(enabled) => updateDeleteRowCondition(condition.id, { enabled })}
+                />
+                <Text className="delete-rule-index">#{index + 1}</Text>
+                <Select
+                  value={condition.rule || "emptyOrZero"}
+                  options={DELETE_ROW_RULE_OPTIONS}
+                  onChange={(rule) => updateDeleteRowCondition(condition.id, { rule })}
+                  style={{ width: 140 }}
+                />
+                <Select
+                  mode="multiple"
+                  value={condition.columns || []}
+                  options={sourceOptions(headers)}
+                  onChange={(columns) => updateDeleteRowCondition(condition.id, { columns })}
+                  placeholder="Columns to check"
+                  className="delete-rule-columns"
+                  maxTagCount="responsive"
+                />
+                <Select
+                  value={condition.match || "any"}
+                  options={DELETE_ROW_MATCH_OPTIONS}
+                  onChange={(match) => updateDeleteRowCondition(condition.id, { match })}
+                  style={{ width: 92 }}
+                />
+                <Tooltip title="Delete condition">
+                  <Button danger icon={<DeleteOutlined />} onClick={() => removeDeleteRowCondition(condition.id)} />
+                </Tooltip>
+              </div>
+            ))}
+          </Space>
+        ) : (
+          <Text type="secondary">No row deletion conditions configured.</Text>
+        )}
+      </div>
+    );
   }
 
   function renderOperationControls(column) {
@@ -288,6 +370,7 @@ export default function MappingEditor({
         </Space>
         <Button type="primary" onClick={onGenerate}>Generate preview</Button>
       </div>
+      {renderDeleteRowConditions()}
       <Table
         rowKey="id"
         size="small"

@@ -4,6 +4,7 @@ function makeColumnId(prefix, value, index) {
 
 export function createInitialPlan(headers) {
   return {
+    deleteRowConditions: [],
     columns: headers.map((header, index) => ({
       id: makeColumnId("col", header, index),
       outputName: header,

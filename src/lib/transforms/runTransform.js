@@ -1,4 +1,5 @@
 import { collectOperationWarnings, runOperation } from "./operations";
+import { shouldKeepRow } from "./deleteRowConditions";
 
 function isFilled(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
@@ -30,8 +31,19 @@ export function runTransform(rows, plan, cellMetadataRows = []) {
   const outputHeaders = enabledColumns.map((column) => column.outputName.trim());
   const rowWarnings = [];
   const outputCellMetadataRows = [];
+  const deletedSourceRows = [];
+  let deletedRowCount = 0;
 
-  const outputRows = rows.map((row, rowIndex) => {
+  const outputRows = rows.flatMap((row, rowIndex) => {
+    if (!shouldKeepRow(row, plan.deleteRowConditions || [])) {
+      deletedRowCount += 1;
+      deletedSourceRows.push({
+        __sourceRowNumber: rowIndex + 2,
+        ...row,
+      });
+      return [];
+    }
+
     const rowMetadata = cellMetadataRows[rowIndex] || {};
     const outputRowMetadata = {};
 
@@ -44,13 +56,15 @@ export function runTransform(rows, plan, cellMetadataRows = []) {
     }, {});
 
     outputCellMetadataRows.push(outputRowMetadata);
-    return outputRow;
+    return [outputRow];
   });
 
   return {
     outputHeaders,
     outputRows,
     outputCellMetadataRows,
+    deletedRowCount,
+    deletedSourceRows,
     rowWarnings: rowWarnings.slice(0, 50),
   };
 }

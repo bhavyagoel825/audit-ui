@@ -1,6 +1,8 @@
 "use client";
 
-import { Alert, Collapse, List, Space } from "antd";
+import { Alert, Collapse, List, Space, Typography } from "antd";
+
+const { Text } = Typography;
 
 function MessageList({ items }) {
   return <List size="small" dataSource={items} renderItem={(item) => <List.Item>{item}</List.Item>} />;
@@ -12,6 +14,9 @@ export default function ValidationPanel({ report }) {
   }
 
   const collapseItems = [];
+  const summaryText = report.summary
+    ? `Input rows: ${report.summary.inputRows}. Output rows: ${report.summary.outputRows}. Deleted rows: ${report.summary.deletedRows || 0}.`
+    : null;
 
   if (report.rowWarnings?.length) {
     collapseItems.push({
@@ -31,7 +36,7 @@ export default function ValidationPanel({ report }) {
           description={<MessageList items={report.blockingErrors} />}
         />
       ) : (
-        <Alert type="success" showIcon message="Validation passed" />
+        <Alert type="success" showIcon message="Validation passed" description={summaryText ? <Text>{summaryText}</Text> : null} />
       )}
       {report.warnings.length ? (
         <Alert type="warning" showIcon message="Warnings" description={<MessageList items={report.warnings} />} />

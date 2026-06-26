@@ -84,6 +84,40 @@ a {
   justify-content: flex-end;
 }
 
+.delete-rules-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.delete-rules-heading,
+.delete-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.delete-rules-heading {
+  justify-content: space-between;
+}
+
+.delete-rule-row {
+  flex-wrap: wrap;
+}
+
+.delete-rule-index {
+  min-width: 28px;
+}
+
+.delete-rule-columns {
+  min-width: 260px;
+  flex: 1 1 320px;
+}
+
 .main-card .ant-card-body {
   padding-top: 12px;
 }
@@ -112,14 +146,41 @@ a {
   background: #eef5ff !important;
 }
 
+.deleted-rows-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #ffa39e;
+  border-radius: 6px;
+  background: #fff7f6;
+}
+
+.ant-table-tbody > tr.deleted-source-row > td,
+.ant-table-tbody > tr.deleted-source-row.ant-table-row:hover > td,
+.ant-table-tbody > tr.deleted-source-row > td.ant-table-cell-fix-left {
+  background: #fff1f0 !important;
+}
+
+.ant-table-tbody > tr.deleted-source-row > td:first-child {
+  border-left: 4px solid #ff4d4f;
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   .app-content {
     padding: 20px 12px 32px;
   }
 
   .page-heading,
-  .toolbar {
+  .toolbar,
+  .delete-rules-heading,
+  .delete-rule-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .delete-rule-columns {
+    min-width: 100%;
   }
 }

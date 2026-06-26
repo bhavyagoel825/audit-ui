@@ -212,7 +212,7 @@ export default function Home() {
     {
       key: "source",
       label: "Source",
-      children: <SourcePreview sheet={selectedSheet} />,
+      children: <SourcePreview sheet={selectedSheet} deletedSourceRows={generated?.deletedSourceRows || []} />,
     },
     {
       key: "mappings",
@@ -244,7 +244,12 @@ export default function Home() {
       children: (
         <Space direction="vertical" size="middle" className="full-width">
           <ValidationPanel report={validationReport} />
-          <GeneratedPreview generated={generated} canDownload={canDownload} onDownload={handleDownload} />
+          <GeneratedPreview
+            generated={generated}
+            sourceHeaders={selectedSheet?.headers || []}
+            canDownload={canDownload}
+            onDownload={handleDownload}
+          />
         </Space>
       ),
     },

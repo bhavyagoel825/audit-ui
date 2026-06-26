@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 const SUPPORTED_EXTENSIONS = new Set(["csv", "xls", "xlsx"]);
 
 const DATE_FORMAT_HINTS = /[ymdhs]/i;
+const DEFAULT_DATE_FORMAT = "dd-mm-yyyy";
 const SAFE_CSV_NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 function getExtension(fileName) {
@@ -46,6 +47,34 @@ function isDateFormattedCell(cell) {
   return DATE_FORMAT_HINTS.test(cell.z);
 }
 
+function getDateCellFormat(cell) {
+  if (!isDateFormattedCell(cell)) {
+    return undefined;
+  }
+
+  const format = cell.z || "";
+  const dayIndex = format.toLowerCase().indexOf("d");
+  const monthIndex = format.toLowerCase().indexOf("m");
+
+  if (dayIndex >= 0 && monthIndex >= 0 && dayIndex < monthIndex) {
+    return format;
+  }
+
+  return DEFAULT_DATE_FORMAT;
+}
+
+function getDateCellValue(cell) {
+  const parsed = XLSX.SSF.parse_date_code(cell.v);
+  if (!parsed) {
+    return getFormattedCellValue(cell);
+  }
+
+  const day = String(parsed.d).padStart(2, "0");
+  const month = String(parsed.m).padStart(2, "0");
+  const year = String(parsed.y).padStart(4, "0");
+  return `${day}-${month}-${year}`;
+}
+
 function getFormattedCellValue(cell) {
   if (!cell) {
     return "";
@@ -60,7 +89,7 @@ function getPreviewCellValue(cell) {
   }
 
   if (cell.t === "n") {
-    return isDateFormattedCell(cell) ? getFormattedCellValue(cell) : cell.v;
+    return isDateFormattedCell(cell) ? getDateCellValue(cell) : cell.v;
   }
 
   if (cell.t === "b") {
@@ -75,11 +104,13 @@ function getCellMetadata(cell) {
     return null;
   }
 
+  const dateFormat = getDateCellFormat(cell);
+
   return {
     value: cell.v ?? "",
     type: cell.t,
-    format: cell.z,
-    displayValue: getFormattedCellValue(cell),
+    format: dateFormat ?? cell.z,
+    displayValue: dateFormat ? getDateCellValue(cell) : getFormattedCellValue(cell),
   };
 }
 

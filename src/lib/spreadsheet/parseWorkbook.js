@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 const SUPPORTED_EXTENSIONS = new Set(["csv", "xls", "xlsx"]);
 
 const DATE_FORMAT_HINTS = /[ymdhs]/i;
+const SAFE_CSV_NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 function getExtension(fileName) {
   return fileName.split(".").pop()?.toLowerCase() || "";
@@ -82,7 +83,37 @@ function getCellMetadata(cell) {
   };
 }
 
-function readWorksheetRows(worksheet) {
+function getCsvNumberFormat(text) {
+  const decimal = text.split(".")[1];
+  return decimal ? `0.${"0".repeat(decimal.length)}` : undefined;
+}
+
+function getCsvCellMetadata(cell) {
+  if (!cell) {
+    return null;
+  }
+
+  const value = cell.v ?? "";
+  const text = String(value).trim();
+
+  if (SAFE_CSV_NUMBER.test(text)) {
+    return {
+      value: Number(text),
+      type: "n",
+      format: getCsvNumberFormat(text),
+      displayValue: value,
+    };
+  }
+
+  return {
+    value,
+    type: "s",
+    format: undefined,
+    displayValue: value,
+  };
+}
+
+function readWorksheetRows(worksheet, { rawCsv = false } = {}) {
   const range = worksheet["!ref"] ? XLSX.utils.decode_range(worksheet["!ref"]) : null;
   if (!range) {
     return [];
@@ -97,7 +128,7 @@ function readWorksheetRows(worksheet) {
       const address = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
       const cell = worksheet[address];
       values.push(getPreviewCellValue(cell));
-      metadata.push(getCellMetadata(cell));
+      metadata.push(rawCsv ? getCsvCellMetadata(cell) : getCellMetadata(cell));
     }
 
     const hasValue = values.some((value) => value !== null && value !== undefined && String(value).trim() !== "");
@@ -109,8 +140,8 @@ function readWorksheetRows(worksheet) {
   return rows;
 }
 
-function worksheetToSheetData(worksheet, sheetName) {
-  const matrix = readWorksheetRows(worksheet);
+function worksheetToSheetData(worksheet, sheetName, options) {
+  const matrix = readWorksheetRows(worksheet, options);
 
   const warnings = [];
 
@@ -167,11 +198,17 @@ export async function parseSpreadsheetFile(file) {
     throw new Error("Unsupported file type. Choose a CSV, XLS, or XLSX file.");
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: false, cellNF: true, cellText: true });
+  const isCsv = extension === "csv";
+  const fileContent = isCsv ? await file.text() : await file.arrayBuffer();
+  const workbook = XLSX.read(
+    fileContent,
+    isCsv
+      ? { type: "string", raw: true, cellDates: false, cellNF: true, cellText: true }
+      : { type: "array", cellDates: false, cellNF: true, cellText: true },
+  );
 
   const sheets = workbook.SheetNames.map((sheetName) => {
-    return worksheetToSheetData(workbook.Sheets[sheetName], extension === "csv" ? "CSV" : sheetName);
+    return worksheetToSheetData(workbook.Sheets[sheetName], isCsv ? "CSV" : sheetName, { rawCsv: isCsv });
   });
 
   return {
